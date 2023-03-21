@@ -1,31 +1,13 @@
 import json
 import os
-import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
-from pathlib import Path
-from typing import Any, List, Mapping, Optional, Union
+from typing import Any, Mapping, Optional, Union
 
 import pandas as pd  # type: ignore
-import requests
-from requests.adapters import HTTPAdapter
-from requests.exceptions import HTTPError
-from tenacity import (
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
-from urllib3.util import Retry
 
-from jquantsapi.client_json import JSONClient
 from jquantsapi import constants, enums
-
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib
-
+from jquantsapi.client_json import JSONClient
 
 DatetimeLike = Union[datetime, pd.Timestamp, str]
 _Data = Union[str, Mapping[str, Any]]
@@ -55,7 +37,9 @@ class Client(JSONClient):
             mail_address: J-Quants API login email address
             password: J-Quants API login password
         """
-        super().__init__(refresh_token=refresh_token, mail_address=mail_address, password=password)
+        super().__init__(
+            refresh_token=refresh_token, mail_address=mail_address, password=password
+        )
 
     def get_listed_info(self, code: str = "", date_yyyymmdd: str = "") -> pd.DataFrame:
         """

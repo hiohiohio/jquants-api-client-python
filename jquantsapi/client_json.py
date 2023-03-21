@@ -1,8 +1,7 @@
-import json
 import os
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterator, List, Mapping, Optional, Union
 
@@ -17,7 +16,7 @@ from tenacity import (
 )
 from urllib3.util import Retry
 
-from jquantsapi import constants, enums
+from jquantsapi import enums
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -33,10 +32,12 @@ class TokenAuthRefreshBadRequestException(Exception):
     pass
 
 
-def date_range(start_date: DatetimeLike, end_date: DatetimeLike, step_days: int = 1) -> Iterator[datetime]:
+def date_range(
+    start_date: DatetimeLike, end_date: DatetimeLike, step_days: int = 1
+) -> Iterator[datetime]:
     """
     Generate a range of dates between start_date and end_date (inclusive) with a step of step_days.
-    
+
     :param start_date: The starting date of the range, as a datetime object | yyyymmdd str | yyyy-mm-dd str.
     :param end_date: The ending date of the range, as a datetime object | yyyymmdd str | yyyy-mm-dd str.
     :param step_days: The number of days between each date in the range. Default is 1, which means consecutive dates.
@@ -57,7 +58,6 @@ def date_range(start_date: DatetimeLike, end_date: DatetimeLike, step_days: int 
             end_date = datetime.strptime(end_date, "%Y%m%d")
     elif type(end_date) is not datetime:
         raise TypeError("end_date must be a datetime object or a string.")
-
 
     current_date = start_date
 
@@ -108,12 +108,12 @@ class JSONClient:
         if refresh_token is not None:
             self._refresh_token = refresh_token
 
-        self._refresh_token_expire = datetime.utcnow()
+        self._refresh_token_expire = datetime.now(timezone.utc)
         if self._refresh_token != "":
             self._refresh_token_expire += timedelta(days=6)
 
         self._id_token = ""
-        self._id_token_expire = datetime.utcnow()
+        self._id_token_expire = datetime.now(timezone.utc)
         self._session: Optional[requests.Session] = None
 
         if ((self._mail_address == "") or (self._password == "")) and (
@@ -298,7 +298,7 @@ class JSONClient:
         Returns:
             refresh_token: J-Quants API refresh token
         """
-        if self._refresh_token_expire > datetime.utcnow():
+        if self._refresh_token_expire > datetime.now(timezone.utc):
             return self._refresh_token
 
         if mail_address is None:
@@ -319,7 +319,7 @@ class JSONClient:
         ret = self._post(url, json=data)
         refresh_token = ret.json()["refreshToken"]
         self._refresh_token = refresh_token
-        self._refresh_token_expire = datetime.utcnow() + timedelta(days=6)
+        self._refresh_token_expire = datetime.now(timezone.utc) + timedelta(days=6)
         return self._refresh_token
 
     @retry(
@@ -336,7 +336,7 @@ class JSONClient:
         Retruns:
             id_token: J-Quants API id token
         """
-        if self._id_token_expire > datetime.utcnow():
+        if self._id_token_expire > datetime.now(timezone.utc):
             return self._id_token
 
         if refresh_token is not None:
@@ -362,15 +362,15 @@ class JSONClient:
             ):
                 # clear tokens for the next try
                 self._refresh_token = ""
-                self._refresh_token_expire = datetime.utcnow()
+                self._refresh_token_expire = datetime.now(timezone.utc)
                 self._id_token = ""
-                self._id_token_expire = datetime.utcnow()
+                self._id_token_expire = datetime.now(timezone.utc)
                 # raise for retrying
                 raise TokenAuthRefreshBadRequestException(e)
             raise e
         id_token = ret.json()["idToken"]
         self._id_token = id_token
-        self._id_token_expire = datetime.utcnow() + timedelta(hours=23)
+        self._id_token_expire = datetime.now(timezone.utc) + timedelta(hours=23)
         return self._id_token
 
     def get_listed_info(self, code: str = "", date_yyyymmdd: str = "") -> str:
